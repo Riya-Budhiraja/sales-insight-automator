@@ -1,20 +1,17 @@
 from fastapi import FastAPI, UploadFile, File, Form
 import pandas as pd
 import os
-
-app = FastAPI()
-
-@app.post("/analyze")
-async def analyze(file: UploadFile = File(...), email: str = Form(...)):
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+app = FastAPI()
 limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
 
 @app.post("/analyze")
 @limiter.limit("5/minute")
 async def analyze(file: UploadFile = File(...), email: str = Form(...)):
-    # Security: file validation
+    # Validate file type
     if not file.filename.endswith((".csv", ".xlsx")):
         return {"error": "Invalid file type. Only CSV or XLSX allowed"}
 
@@ -27,9 +24,6 @@ async def analyze(file: UploadFile = File(...), email: str = Form(...)):
     total_revenue = df["Revenue"].sum()
     top_region = df.groupby("Region")["Revenue"].sum().idxmax()
 
-    summary = f"""
-    Total Revenue: {total_revenue}
-    Top Performing Region: {top_region}
-    """
-api_key = os.getenv("GEMINI_API_KEY")
+    summary = f"Total Revenue: {total_revenue}\nTop Performing Region: {top_region}"
+
     return {"summary": summary}
